@@ -2,18 +2,31 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Harris Corner 
-def harris_corners(filename, isPath = False, blur = True):
+
+
+#=================================================================================# 
+# Utilities 
+#=================================================================================# 
+
+def drawCorners(filename, corners, output, isPath = False, colors = (0,255,0)):
 	img = filename
 	if (isPath):
 		img = cv2.imread(filename)
-	gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-	if (blur):
-		blur = cv2.GaussianBlur(gray,(3,3),0)
-		blur = np.float32(blur)
-	else:
-		blur = gray
-	dst = cv2.cornerHarris(blur,2,3,0.04)
+	img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+	for item in corners:
+		x, y = item
+		cv2.circle(img, (x,y), 5, colors, -1)
+	cv2.imwrite(output,img)
+
+#=================================================================================# 
+# Corner Detector
+#=================================================================================# 
+
+def harris_corners(filename, isPath = False):
+	img = filename
+	if (isPath):
+		img = cv2.imread(filename)
+	dst = cv2.cornerHarris(img,2,3,0.04)
 	dst = cv2.dilate(dst,None, iterations = 3)
 
 	img[dst>0.01*dst.max()] = [0,255,0]
@@ -23,19 +36,12 @@ def harris_corners(filename, isPath = False, blur = True):
 
 	plt.show()
 
-# Max Harris Corner
-def max_harris_corners(filename, isPath = False, blur = True):
+def max_harris_corners(filename, output_directory, isPath = False):
 	img = filename
 	if (isPath):
 		img = cv2.imread(filename)
-	gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-	if (blur):
-		blur = cv2.GaussianBlur(gray,(3,3),0)
-		blur = np.float32(blur)
-	else:
-		blur = gray
 	# find Harris corners
-	dst = cv2.cornerHarris(blur,2,3,0.04)
+	dst = cv2.cornerHarris(img,2,3,0.04)
 	dst = cv2.dilate(dst,None)
 	ret, dst = cv2.threshold(dst,0.01*dst.max(),255,0)
 	dst = np.uint8(dst)
@@ -46,56 +52,36 @@ def max_harris_corners(filename, isPath = False, blur = True):
 	# define the criteria to stop and refine the corners
 	criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.001)
 	corners = cv2.cornerSubPix(gray,np.float32(centroids),(5,5),(-1,-1),criteria)
-	
-	# # Now draw them
-	# res = np.hstack((centroids,corners))
-	# res = np.int0(res)
-	# img[res[:,1],res[:,0]]=[0,0,255]
-	# img[res[:,3],res[:,2]] = [0,255,0]
-
-	# cv2.imwrite('subpixel5.png',img)
+	drawCorners(img, corners, output = output_directory+"harris_corners.jpg")
 
 	return corners
 
-# Shi Tomasi
-
-def shitomasi(filename, isPath = False):
+def shitomasi(filename, output_directory, number = 10, isPath = False):
 	img = filename
 	if (isPath):
 		img = cv2.imread(filename)
-	gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-	corners = cv2.goodFeaturesToTrack(gray, 10, 0.05, 25)
+	corners = cv2.goodFeaturesToTrack(img, number, 0.05, 25)
 	corners = np.float32(corners)
-	# for item in corners:
-	#     x, y = item[0]
-	#     cv2.circle(img, (x,y), 5, (0,255,0), -1)
 
-	# cv2.imshow("Top corners", img)
-	# cv2.waitKey()
+	good_corners = np.squeeze(corners, axis = 1)
+	drawCorners(img, good_corners, output = output_directory+"good_corners.jpg")
 
-	return np.squeeze(corners, axis = 1)
+	return good_corners
 
-def merge():
+def merge_corners():
 	filename = 'test/test4.png'
 	img = cv2.imread(filename)
 	corners1 = shitomasi(img)
 	corners2 = max_harris_corners(img)
 	for item in corners1:
-	    x, y = item
-	    cv2.circle(img, (x,y), 5, (0,255,0), -1)
+		x, y = item
+		cv2.circle(img, (x,y), 5, (0,255,0), -1)
 	for item in corners2:
-	    x, y = item
-	    cv2.circle(img, (x,y), 5, (255,0,0), -1)
+		x, y = item
+		cv2.circle(img, (x,y), 5, (255,0,0), -1)
 
 	cv2.imshow("Top corners", img)
 	cv2.waitKey()
 
-
-# Thinning Algorithm returns image that can be fed into harris or max harris or shi tomasi
-
-
-
-
-merge()
 
 

@@ -4,6 +4,33 @@ import math
 from matplotlib import pyplot as plt
 
 #=================================================================================# 
+# Image Reduction 
+#=================================================================================# 
+def preprocess(filename, output_directory, isPath = True):
+	img = filename
+	if (isPath):
+		img = cv2.imread(filename)
+	gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+	cv2.imwrite(output_directory+"GRAYSCALE.jpg",gray)
+	return gray
+
+def filter(filename, output_directory, isPath = True):
+	img = filename
+	if (isPath):
+		img = cv2.imread(filename)
+	blur = cv2.GaussianBlur(img,(3,3),0)
+	cv2.imwrite(output_directory+"GaussianBlur.jpg",blur)
+	return blur
+
+def gradient_elimination(filename, output_directory, isPath = True):
+	img = filename
+	if (isPath):
+		img = cv2.imread(filename)
+	ret,thresh = cv2.threshold(img,200,255,cv2.THRESH_OTSU)
+	cv2.imwrite(output_directory+"THRESH_OTSU.jpg",thresh)
+	return thresh
+
+#=================================================================================# 
 # Utilities 
 #=================================================================================# 
 def unpack(line):
@@ -223,3 +250,146 @@ def LSD(filename, output_directory, isPath = True):
 	drawLines(img, output_directory+"lsd_lines.jpg", lines[0])
 
 	return lines[0]
+
+#=================================================================================# 
+# Corner Detector
+#=================================================================================# 
+
+def harris_corners(filename, isPath = False):
+	img = filename
+	if (isPath):
+		img = cv2.imread(filename)
+	dst = cv2.cornerHarris(img,2,3,0.04)
+	dst = cv2.dilate(dst,None, iterations = 3)
+
+	img[dst>0.01*dst.max()] = [0,255,0]
+
+	plt.imshow(img,cmap = 'gray')
+	plt.title('Corners'), plt.xticks([]), plt.yticks([])
+
+	plt.show()
+
+def max_harris_corners(filename, output_directory, isPath = False):
+	img = filename
+	if (isPath):
+		img = cv2.imread(filename)
+	# find Harris corners
+	dst = cv2.cornerHarris(img,2,3,0.04)
+	dst = cv2.dilate(dst,None)
+	ret, dst = cv2.threshold(dst,0.01*dst.max(),255,0)
+	dst = np.uint8(dst)
+
+	# find centroids
+	ret, labels, stats, centroids = cv2.connectedComponentsWithStats(dst)
+
+	# define the criteria to stop and refine the corners
+	criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.001)
+	corners = cv2.cornerSubPix(gray,np.float32(centroids),(5,5),(-1,-1),criteria)
+	drawCorners(img, corners, output = output_directory+"harris_corners.jpg")
+
+	return corners
+
+def shitomasi(filename, output_directory, number = 10, isPath = False):
+	img = filename
+	if (isPath):
+		img = cv2.imread(filename)
+	corners = cv2.goodFeaturesToTrack(img, number, 0.05, 25)
+	corners = np.float32(corners)
+
+	good_corners = np.squeeze(corners, axis = 1)
+	drawCorners(img, good_corners, output = output_directory+"good_corners.jpg")
+
+	return good_corners
+
+def merge_corners():
+	filename = 'test/test4.png'
+	img = cv2.imread(filename)
+	corners1 = shitomasi(img)
+	corners2 = max_harris_corners(img)
+	for item in corners1:
+		x, y = item
+		cv2.circle(img, (x,y), 5, (0,255,0), -1)
+	for item in corners2:
+		x, y = item
+		cv2.circle(img, (x,y), 5, (255,0,0), -1)
+
+	cv2.imshow("Top corners", img)
+	cv2.waitKey()
+
+
+#=================================================================================# 
+# Line Segment Detector Algorithm
+#=================================================================================# 
+
+#Thinnning algorithm dilates lines then thins to one pixel. This merges all lines
+#Then apply hough transform to get the endpoints (or corner detection to get endooints) 
+#For this, 1 pixel might be too thin so then dilates again so its thick enough
+
+# if two lines have the same slope and y interdept, group them
+# if two lines have the same slope but different y intercepts, they are parallel
+# for parellel lines, check perpendicular distance 
+#=================================================================================
+
+def significant_points(filename, corners_list, output_directory, isPath = True):
+	colors = [(255,0,0),(0,255,0),(0,0,255)]
+	img = filename
+	if (isPath):
+		img = cv2.imread(filename)
+	img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+	index = 0
+	for corners in corners_list:
+		for point in corners:
+			x, y = point
+			cv2.circle(img, (x,y), 2, colors[index], -1)
+		index += 1
+		index = index%3
+	cv2.imwrite(output_directory,img)
+
+
+def main():
+	INPUT = 'test/test.png'
+	OUTPUT = 'output/'
+
+	gray = preprocess(INPUT, OUTPUT)
+	blur = filter(gray, OUTPUT, isPath=False)
+	threshold = gradient_elimination(blur, OUTPUT, isPath=False)
+
+	#pipeline 1	(hough)
+	hough_lines1 = outline(blur, OUTPUT+"blurred_", False)
+	hough_lines2 = outline(threshold, OUTPUT+"threshold_", False)
+	hough_lines = merge(hough_lines1, hough_lines2)
+	purified_hough = purify(hough_lines, OUTPUT+"hough_", INPUT)
+
+	#pipelines 2 (LSD)
+	skel = thin(threshold, OUTPUT, False)
+	LSD_lines = LSD(skel, OUTPUT+"skeleton_", False)
+	purified_LSD = purify(LSD_lines, OUTPUT+"lsd_", INPUT)
+
+
+	#pipeline 3 (corner)
+	corners = shitomasi(blur, OUTPUT, number = 15, isPath=False)
+
+
+	points1 = []
+	points2 = []
+	for line in purified_hough:
+		p1, p2 = unpack(line)
+		points1.append(p1)
+		points1.append(p2)
+	for line in purified_LSD:
+		p1, p2 = unpack(line)
+		points2.append(p1)
+		points2.append(p2)
+	significant_points(threshold, [corners, points1, points2], OUTPUT+"significant_points.jpg", isPath = False)
+
+
+	#make function to extract endpoints from hough_lines and LSD_lines
+	#feed those into drawCorners
+
+
+if __name__ == '__main__':	
+	main()
+
+
+
+

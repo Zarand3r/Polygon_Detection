@@ -1,6 +1,9 @@
 import cv2
 import numpy as np
 
+#=================================================================================# 
+# Image Reduction 
+#=================================================================================# 
 def preprocess(filename, output_directory, isPath = True):
 	img = filename
 	if (isPath):
@@ -24,6 +27,3 @@ def gradient_elimination(filename, output_directory, isPath = True):
 	ret,thresh = cv2.threshold(img,200,255,cv2.THRESH_OTSU)
 	cv2.imwrite(output_directory+"THRESH_OTSU.jpg",thresh)
 	return thresh
-
-def filter():
-	return
