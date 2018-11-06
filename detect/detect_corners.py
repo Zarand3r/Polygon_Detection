@@ -1,7 +1,9 @@
+# Created by Richard Bao on 10/20/18.
+# Copyright © 2018 Richard Bao, California Institute of Technology. All rights reserved.
+
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-
 
 
 #=================================================================================# 
