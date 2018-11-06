@@ -47,7 +47,6 @@ def max_harris_corners(filename, isPath = False, blur = True):
 	criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.001)
 	corners = cv2.cornerSubPix(gray,np.float32(centroids),(5,5),(-1,-1),criteria)
 	
-	return corners
 	# # Now draw them
 	# res = np.hstack((centroids,corners))
 	# res = np.int0(res)
@@ -55,6 +54,8 @@ def max_harris_corners(filename, isPath = False, blur = True):
 	# img[res[:,3],res[:,2]] = [0,255,0]
 
 	# cv2.imwrite('subpixel5.png',img)
+
+	return corners
 
 # Shi Tomasi
 
@@ -65,13 +66,14 @@ def shitomasi(filename, isPath = False):
 	gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 	corners = cv2.goodFeaturesToTrack(gray, 10, 0.05, 25)
 	corners = np.float32(corners)
-	return np.squeeze(corners, axis = 1)
 	# for item in corners:
 	#     x, y = item[0]
-	#     cv2.circle(img, (x,y), 5, 255, -1)
+	#     cv2.circle(img, (x,y), 5, (0,255,0), -1)
 
 	# cv2.imshow("Top corners", img)
 	# cv2.waitKey()
+
+	return np.squeeze(corners, axis = 1)
 
 def merge():
 	filename = 'test/test4.png'
